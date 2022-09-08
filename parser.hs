@@ -1,4 +1,5 @@
 module Main where
+import Control.Monad 
 import System.Environment
 import Text.ParserCombinators.Parsec hiding (spaces)
 
@@ -25,7 +26,7 @@ genericCase a = case genericEmit a of
        	First err -> err
        	Second pass -> pass
 
-data LispVal = Atom String | List [LispVal] | Number String | String String | Bool Bool
+data LispVal = Atom String | List [LispVal] | Num Int |  Number String | String String | Bool Bool
 
 recGeneric :: Int -> IO ()
 recGeneric 0 = print 0
@@ -37,6 +38,8 @@ spaces  = skipMany1 space
 -- custom bind op definition 
 (<-=) ::  a -> (a  -> a) -> a
 a <-= f = f a
+(<--) ::  a -> (a  -> m b) -> m b
+a <-- f = f a
 (<==) ::  m a -> (m a  -> m [a]) -> m [a]
 a <== f = f a
 -- demonstration
@@ -54,13 +57,17 @@ parseString = do char '"'
 		 return $ String x
 
 
-parseAtom :: String -> Parser LispVal
-parseAtom atom = do first <- letter <|> symbols 
-	       	    rest <- (letter <|> digit <|> symbols) <== many
-	       	    return $ case atom of 
+parseAtom :: Parser LispVal
+parseAtom = do first <- letter <|> symbols 
+	       rest <- (letter <|> digit <|> symbols) <== many
+	       let atom = [first] ++ rest
+	       return $ case atom of 
 		   	  "#t" -> Bool True
 			  "#f" -> Bool False 
 			  otherwise -> Atom atom
+
+parseNumber :: Parser LispVal
+parseNumber = liftM (Num . read) $ many1 digit
 
 pAtom :: String ->  LispVal 
 pAtom atom =  case atom of 
@@ -87,4 +94,4 @@ toStr val = do x <- case pAtom val of
 
 main :: IO ()
 main = do args <- getArgs 
-	  print (toStr (args !! 0))
+	  (args !! 0) <-- toStr <-- print
